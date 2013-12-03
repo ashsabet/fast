@@ -1,2 +1,2 @@
-fast
+Is it time yet?
 ====
