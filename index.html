@@ -1,0 +1,238 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"> 
+ <!--
+ Please note that code has been copied or adapted from work done by Chris Cornwall, Aaron Horiuchi and Chris Lehman.  
+ For more info please visit:
+ http://www.esrl.noaa.gov/gmd/grad/solcalc/sunrise.html
+ -->
+    <head> 
+        <title> 
+            Fast Breaking
+        </title> 
+ 
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> 
+        <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0;" /> 
+ 
+        <script type="text/javascript" src="sunc.js"></script> 
+        <script type="text/javascript"> 
+
+        function printPosition(position){
+			var details = document.getElementById('details');
+			var pos = position.coords.latitude+","+position.coords.longitude;
+
+			document.getElementById('details').innerHTML = "<A HREF='http://maps.google.com/?q="+pos+"'>Location: "+pos+"</A>"
+
+			var now = new Date();
+			var utcOffset = now.getTimezoneOffset(); //in minutes
+	//		details.innerHTML = details.innerHTML + "<BR>The local time zone is: UTC " + -(utcOffset/60);
+
+			var year = now.getFullYear();
+			var month = now.getMonth()+1;
+			var date = now.getDate();
+	//		details.innerHTML = details.innerHTML + "<BR>Year/Month/Day: " +year+"/"+month+"/"+date;
+
+			var longitude = -(position.coords.longitude);
+			var latitude = position.coords.latitude;
+			var jd = calcJD(now.getFullYear(), now.getMonth()+1, now.getDate());
+
+			var riseUtc = calcSunriseUTC(jd, latitude, longitude);
+			var riseString = timeStringDate(riseUtc-(utcOffset),jd);
+
+			var setUtc = calcSunsetUTC(jd, latitude, longitude);
+			var setString = timeStringDate(setUtc-(utcOffset),jd);
+
+			var tomorrow = new Date();
+			tomorrow.setTime(now.getTime()+(1000*60*60*24)); // this time tomorrow
+			var nextJd = calcJD(tomorrow.getFullYear(), tomorrow.getMonth()+1, tomorrow.getDate());
+
+			var nextRiseUtc = calcSunriseUTC(nextJd, latitude, longitude);
+			var nextString = timeStringDate(nextRiseUtc-(utcOffset),nextJd);
+
+			details.innerHTML = details.innerHTML + "<BR>"+now.toString();
+			details.innerHTML = details.innerHTML + "<BR>Sunrise: "+riseString;
+			details.innerHTML = details.innerHTML + "<BR>Sunset : "+setString;
+			details.innerHTML = details.innerHTML + "<BR>Sunrise tomorrow: "+nextString;
+
+			var riseDate = new Date();
+			riseArray = riseString.split(":");
+			riseDate.setHours(riseArray[0]);
+			riseDate.setMinutes(riseArray[1]);
+			riseDate.setSeconds(0);
+			riseDate.setMilliseconds(0);
+			window.riseDate = riseDate;
+
+			var setDate = new Date();
+			setArray = setString.split(":");
+			setDate.setHours(setArray[0]);
+			setDate.setMinutes(setArray[1]);
+			setDate.setSeconds(0);
+			setDate.setMilliseconds(0);
+			window.setDate = setDate;
+
+			var nextDate = new Date();
+			nextArray = nextString.split(":");
+			nextDate.setHours(nextArray[0]);
+			nextDate.setMinutes(nextArray[1]);
+			nextDate.setSeconds(0);
+			nextDate.setMilliseconds(0);
+			nextDate.setTime(nextDate.getTime() + (24*60*60*1000)); // add 24 hours in milliseconds
+			window.nextDate = nextDate;
+
+			displayTimeLeft();
+		}
+
+		function displayTimeLeft(){
+
+			var now = new Date();
+
+			var timeLeft; // in milliseconds
+
+			if (now < riseDate)
+			{
+				timeLeft = riseDate.getTime() - now.getTime();
+			}
+			else if (now > setDate)
+			{
+				timeLeft = nextDate.getTime() - now.getTime();
+			}
+			else // now > riseDate && now < setDate
+			{
+				timeLeft = setDate.getTime() - now.getTime();
+			}
+			
+			var hoursLeft = Math.floor((timeLeft / (60*60*1000)));
+			timeLeft = timeLeft - (hoursLeft * 60 * 60 * 1000);
+
+			var minsLeft = Math.floor((timeLeft / (60*1000)));
+			timeLeft = timeLeft - (minsLeft * 60 * 1000);
+
+			var secsLeft = Math.floor((timeLeft / 1000));
+
+			var timeLeftString = pad(hoursLeft,2)+"h"+pad(minsLeft,2)+"m"+pad(secsLeft,2)+"s";
+
+
+			document.getElementById('timeLeft').innerHTML = timeLeftString;
+			maxFont();
+
+			if (now > riseDate && now < setDate)
+			{
+				document.body.style.backgroundColor = "red";
+			}
+			else
+			{
+				document.body.style.backgroundColor = "green";
+			}
+
+			window.setTimeout('displayTimeLeft()', 1000);			
+		}
+
+		function maxFont()
+		{
+			var container = document.getElementById('timeContainer');
+			var line  = document.getElementById('timeLeft');
+			line.style.fontSize = "1px";
+			
+			while(line.offsetWidth < container.offsetWidth)
+			{
+				line.style.fontSize = (parseInt(line.style.fontSize) + 1)+"px";
+			}
+			
+			line.style.fontSize = (parseInt(line.style.fontSize)-1)+"px";
+		}
+
+		function pad(number, length) {
+   
+		    var str = '' + number;
+		    while (str.length < length) {
+		        str = '0' + str;
+		    }
+   
+		    return str;
+
+		}
+
+		function hideDetails(){
+			document.getElementById('details').style.visibility = 'hidden';
+		}
+		
+		function showDetails(){
+			document.getElementById('details').style.visibility = 'visible';
+		}
+		
+		function tempShowDetails(){
+			showDetails();
+			window.setTimeout('hideDetails()', 8000);
+		}
+		
+		function geoLocationError(error){
+			alert("Can't seem to figure where you are in the world!\n\nPlease make sure that this application is allowed to access your location information.\n\n"+error.message);
+		}
+
+        function startCounter(){
+            navigator.geolocation.getCurrentPosition(printPosition, geoLocationError, {maximumAge:600000});
+			window.setTimeout('hideDetails()', 6000);
+		}
+		
+		document.onclick=function(){tempShowDetails();};
+		
+        </script>
+ 
+		<script type="text/javascript">
+
+		  var _gaq = _gaq || [];
+		  _gaq.push(['_setAccount', 'UA-21856050-1']);
+		  _gaq.push(['_trackPageview']);
+
+		  (function() {
+			var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+			ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+			var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+		  })();
+
+		</script>
+
+
+        <style type="text/css"> 
+ 
+            body {
+                background-color: white;
+                padding: 0px;
+                margin: 0px;
+				color: white;
+				font-family: courier new;
+            }
+		
+            #timeContainer {
+				position: absolute;
+				top: 25%;
+				width: 100%
+			}
+
+			#details {
+				font-size: 10px;
+			}
+
+ 
+ 
+        </style> 
+ 
+    </head> 
+ 
+    <body onload="maxFont(); startCounter();"> 
+ 
+
+		<div id='timeContainer' style="width:100%">
+		
+			<span id='timeLeft' style="font-size:20px">
+			<font color='black'>Location?</font>
+			</span>
+			
+		</div>
+
+		<div id='details'> 
+		</div> 
+	 
+	</body> 
+ 
+</html> 
